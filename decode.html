@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decoder การจองเวลาเรียน</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <h1 class="text-2xl font-bold mb-4">Decoder การจองเวลาเรียน</h1>
+        <p class="mb-4 text-gray-600">อัพโหลดรูปภาพ QR Code จากระบบจองเวลาเรียนเพื่อแสดงรายละเอียด</p>
+        
+        <div class="mb-4">
+            <label for="qrImage" class="block text-sm font-medium text-gray-700 mb-2">เลือกไฟล์ภาพ QR Code</label>
+            <input type="file" id="qrImage" accept="image/*" class="w-full p-2 border rounded-lg">
+        </div>
+        <button id="decodeBtn" class="bg-blue-600 text-white py-2 px-4 rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>Decode</button>
+        
+        <canvas id="canvas" class="hidden"></canvas>
+        <div id="decodedContent" class="mt-6 hidden space-y-4"></div>
+        <div id="errorMessage" class="mt-4 text-red-600 hidden"></div>
+    </div>
+
+    <script>
+        const input = document.getElementById('qrImage');
+        const decodeBtn = document.getElementById('decodeBtn');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const decodedContent = document.getElementById('decodedContent');
+        const errorMessage = document.getElementById('errorMessage');
+
+        input.addEventListener('change', function() {
+            decodeBtn.disabled = !input.files.length;
+        });
+
+        decodeBtn.addEventListener('click', function() {
+            if (!input.files.length) {
+                showError('กรุณาเลือกไฟล์ภาพก่อน');
+                return;
+            }
+
+            const file = input.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Set canvas size to image size
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+
+                    // Scan QR code
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: 'dontInvert'
+                    });
+
+                    if (code) {
+                        try {
+                            const jsonData = atob(code.data); // Base64 decode
+                            const data = JSON.parse(jsonData);
+                            
+                            let html = `
+                                <div class="bg-indigo-50 p-4 rounded-lg">
+                                    <h3 class="font-bold text-lg text-indigo-800">📋 แพ็กเกจที่เลือก</h3>
+                                    <p>เรียนเดือนละ ${data.packageSessions} ครั้ง</p>
+                                    <p>จำนวนผู้เรียน: ${data.studentCount} คน</p>
+                                    <p class="font-bold text-xl text-indigo-600">ราคา: ${data.totalPrice.toLocaleString()} บาท/เดือน</p>
+                                </div>
+                                
+                                <div class="bg-green-50 p-4 rounded-lg">
+                                    <h3 class="font-bold text-lg text-green-800">📅 วันเวลาที่จอง</h3>
+                                    <div class="space-y-2 mt-2">
+                            `;
+                            
+                            data.sessions.forEach((session, index) => {
+                                const [year, month, day] = session.date.split('-').map(Number);
+                                const monthNames = [
+                                    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                                    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+                                ];
+                                const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+                                const dateObj = new Date(year, month - 1, day);
+                                const dayOfWeek = dateObj.getDay();
+                                const thaiDate = `วัน${dayNames[dayOfWeek]}ที่ ${day} ${monthNames[month - 1]} ${year + 543}`;
+                                
+                                html += `
+                                    <div class="flex justify-between items-center bg-white p-2 rounded border">
+                                        <span>ครั้งที่ ${index + 1}: ${thaiDate}</span>
+                                        <span class="font-medium text-green-600">${session.time} น.</span>
+                                    </div>
+                                `;
+                            });
+                            
+                            html += `</div></div>`;
+                            
+                            decodedContent.innerHTML = html;
+                            decodedContent.classList.remove('hidden');
+                            errorMessage.classList.add('hidden');
+                        } catch (e) {
+                            showError('ไม่สามารถ decode ข้อมูลได้: ' + e.message);
+                        }
+                    } else {
+                        showError('ไม่พบ QR Code ในภาพ');
+                    }
+                };
+                img.src = e.target.result;
+            };
+
+            reader.readAsDataURL(file);
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            decodedContent.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
