@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>จองเวลาเรียนพิเศษ</title>
     <script src="https://cdn.tailwindcss.com?ts=${new Date().getTime()}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body {
             box-sizing: border-box;
@@ -28,7 +29,7 @@
             <h2 class="text-2xl font-bold text-indigo-700 mb-2">🎓 ระบบจองเวลาเรียนพิเศษ (คลาสส่วนตัว)</h2>
             <p class="text-gray-600">เลือกแพ็กเกจและจองเวลาเรียนที่เหมาะกับคุณ</p>
             <button id="refreshBtn" class="mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                🔄 Version : 118100123
+                🔄 Version : 218101314
             </button>
         </header>
 
@@ -181,10 +182,11 @@
         <div id="summaryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
             <div class="bg-white rounded-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <h2 class="text-2xl font-bold text-green-600 mb-6 text-center">✅ สรุปการจองเวลาเรียน</h2>
+                <div id="qrContainer" class="flex justify-center mb-6"></div>
                 <div id="summaryContent" class="space-y-4"></div>
                 <div class="mt-6 p-4 bg-blue-50 rounded-lg">
                     <p class="text-sm text-blue-800">
-                        📱 กรุณา Capture หน้าจอนี้และส่งมาที่ Line Official: <strong>@969tlnoy</strong>
+                        📱 กรุณาบันทึกภาพ QR Code ด้านบนและส่งมาที่ Line Official: <strong>@969tlnoy</strong> เพื่อยืนยันการจอง
                     </p>
                 </div>
                 <button id="closeSummary" class="w-full bg-gray-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-gray-700 transition-colors mt-4">
@@ -608,7 +610,11 @@
         function showSummary() {
             const modal = document.getElementById('summaryModal');
             const content = document.getElementById('summaryContent');
+            const qrContainer = document.getElementById('qrContainer');
             
+            // Clear previous QR code
+            qrContainer.innerHTML = '';
+
             const studentCount = parseInt(document.getElementById('studentCount').value);
             const basePrice = selectedPackage.price;
             const totalPrice = basePrice + (studentCount - 1) * (basePrice / 2);
@@ -658,6 +664,31 @@
             `;
             
             content.innerHTML = summaryHTML;
+
+            // Generate encoded data for QR code
+            const data = {
+                packageSessions: selectedPackage.sessions,
+                basePrice: basePrice,
+                studentCount: studentCount,
+                totalPrice: totalPrice,
+                sessions: sortedSessions
+            };
+            const jsonData = JSON.stringify(data);
+            const encodedData = btoa(jsonData); // Base64 encode
+
+            // Create QR code
+            const qrDiv = document.createElement('div');
+            qrDiv.id = 'qrcode';
+            qrContainer.appendChild(qrDiv);
+            new QRCode(qrDiv, {
+                text: encodedData,
+                width: 256,
+                height: 256,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
             modal.classList.remove('hidden');
             modal.classList.add('flex');
         }
